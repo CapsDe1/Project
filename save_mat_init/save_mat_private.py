@@ -9,28 +9,65 @@ from source.save_meta import save_meta
 meta = {
     "segmentation": "x",
     "value": "raw",
-    "dimension": ("time", "channel")
+    "dimension": ("time", "channel"),
+    "key_order": ["f3", "f4", "c3", "c4", "t3", "t4", "cz", "oz"]
 }
 
-def private_save_mat(dir_path_load_common: str, dir_path_save_common: str):
-    for dir_name_sbj in os.listdir(dir_path_load_common):
-        dir_path_sbj = os.path.join(dir_path_load_common, dir_name_sbj)
+key_order = meta["key_order"]
+
+def get_channel_values(file_path):
+    values = []
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            value = [float(val) for val in line.split(':')[1].strip().split()]
+            values.append(value)
+    return values
+
+def assign_channels(channels, values, x_channels):
+    if channels == "f3f4":
+        x_channels["f3"] = values[0]
+        x_channels["f4"] = values[1]
+    elif channels == "c3c4":
+        x_channels["c3"] = values[0]
+        x_channels["c4"] = values[1]
+    elif channels == "t3t4":
+        x_channels["t3"] = values[0]
+        x_channels["t4"] = values[1]
+    elif channels == "czoz":
+        x_channels["cz"] = values[0]
+        x_channels["oz"] = values[1]
+    else:
+        raise ValueError(f"Invalid channels: {channels}")
+
+def get_save_path(dir_path_save_common, y, key):
+    if y == "0":
+        return os.path.join(dir_path_save_common, "HC", f'{key}.mat')
+    elif y == "1":
+        return os.path.join(dir_path_save_common, "SC", f'{key}.mat')
+    elif y == "2":
+        return os.path.join(dir_path_save_common, "ADHD", f'{key}.mat')
+    else:
+        raise ValueError(f"Invalid label '{y}'.")
+
+def save_mat_private(dir_path_load: str, dir_path_save_common: str, meta_path_save: str):
+    # create directory for y
+    dir_path_save_HC = os.path.join(dir_path_save_common, "HC")
+    os.makedirs(dir_path_save_HC, exist_ok=True)
+    dir_path_save_SC = os.path.join(dir_path_save_common, "SC")
+    os.makedirs(dir_path_save_SC, exist_ok=True)
+    dir_path_save_ADHD = os.path.join(dir_path_save_common, "ADHD")
+    os.makedirs(dir_path_save_ADHD, exist_ok=True)
+
+    # loop for subject directory
+    for dir_name_sbj in os.listdir(dir_path_load):
+        dir_path_sbj = os.path.join(dir_path_load, dir_name_sbj, '1차')
 
         if not os.path.isdir(dir_path_sbj):
             print(f"{dir_name_sbj} is not a directory.")
             continue
 
-        dir_path_txt = os.path.join(dir_path_sbj, '1차')
-
-        if not os.path.exists(dir_path_txt):
-            print(f"{dir_path_txt} doesn't exist.")
-            continue
-        
-        #initialization
-        x = []
-        label = None
-        channel = {"f3f4": 0, }
-
+        # check subject
         if not (len(dir_name_sbj[-7:-1]) == 6 and dir_name_sbj[-7:-1].isdigit()):
             print(f"{dir_name_sbj} is invalid.")
             continue
@@ -38,64 +75,56 @@ def private_save_mat(dir_path_load_common: str, dir_path_save_common: str):
         # get key
         key = dir_name_sbj[-7:-1] + "_0"
 
-        for file_name in os.listdir(dir_path_txt):
-            file_path = os.path.join(dir_path_txt, file_name)
+        # initialization
+        x_channels = {ch: None for ch in key_order}
+        y = None
 
-            if not file_name.endswith('.txt'):
-                print(f"{file_path} is not a '.txt' file.")
-                continue
-            
-            # get y
-            if file_name == "label.txt":
-                with open(file_path, 'r') as file:
-                    label = file.read(1)
-                continue
+        # loop for x_channels
+        for file_name in os.listdir(dir_path_sbj):
+            file_path = os.path.join(dir_path_sbj, file_name)
 
-            channels = dir_name_sbj[0:4]
+            # check if file extension is .txt
+            if file_name.endswith('.txt'):
 
-            if not len(channels) == 4:
-                print(f"{channels} is invalid.")
-                continue
-            
-            # get channel x
-            channel_x = []
-            # get data
-            with open(file_path, 'r') as file:
-                lines = file.readlines()
-                for line in lines:
-                    if not line.startswith("CN"):
-                        print(f"A line of {file_path} doesn't start with 'CN'.")
-                    channel_x_str = line.split(':')[1].strip().split()
-                    channel_x.append([float(x) for data in channel_x_str])
+                # get label
+                if file_name == "label.txt":
+                    with open(file_path, 'r') as file:
+                        y = file.read(1)
+                    continue
+                
+                # get xs
+                x_two = get_channel_values(file_path)
 
-            if channels == "f3f4":
-                print()
-            elif channels == "c3c4":
-                print()
-            elif channels == "t3t4":
-                print()
-            elif channels == "czoz":
-                print()
-            else:
-                print(f"{channels} is invalid.")
-                continue
+                # get channels
+                channels = file_name[0:4]
+
+                # check channels
+                if len(channels) != 4:
+                    print(f"{channels} is invalid.")
+                    continue
+                
+                # assign x_two to x_channels
+                try:
+                    assign_channels(channels, x_two, x_channels)
+                except ValueError as e:
+                    print(e)
+                    continue
         
-        # transpose x
-        x = np.array(x).T
+        # checkk x_channels is fullfilled
+        if None in x_channels.values():
+            print(f"Incomplete data for {key}. Skipping.")
+            continue
 
-        # save mat
-        if label == "0":
-            print()
-        elif label == "1":
-            print()
-        elif label == "2":
-            print()
-        else:
-            print(f"Invalid label '{label}' for subject '{dir_name_sbj}'.")
-        save_mat_path = os.path.join(save_dir_path_dictionary[label], f"{key}{FILE_EXTENSION_MAT}")
-        sio.savemat(save_mat_path, {key: x})
+        # compose x
+        x = np.column_stack([x_channels[key] for key in key_order])
 
-        # print save mat notification
-        print(f"'{save_mat_path}' saved.")
+        # save x
+        try:
+            save_path = get_save_path(dir_path_save_common, y, key)
+            sio.savemat(save_path, {key: x})
+            print(f"'{save_path}' saved.")
+        except ValueError as e:
+            print(e)
 
+    # save meta
     save_meta(meta_path_save, meta)
