@@ -73,7 +73,7 @@ def save_mat_private(dir_path_load: str, dir_path_save_common: str, meta_path_sa
             continue
 
         # get key
-        key = dir_name_sbj[-7:-1] + "_0"
+        key = "v" + dir_name_sbj[-7:-1] + "p" + "_0"
 
         # initialization
         x_channels = {ch: None for ch in key_order}
