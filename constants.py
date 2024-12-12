@@ -1,7 +1,7 @@
 K_FOLD = 10
 NAME = "wavelet"
 
-HOME_URL = "/home/unixuser/capstone_design"
+HOME_URL = ""
 
 DATA_URL = f"{HOME_URL}/data"
 
